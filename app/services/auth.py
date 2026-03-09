@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password, verify_password
@@ -10,6 +11,7 @@ from app.schemas.user import UserCreate, UserResponse
 
 class AuthService:
     def __init__(self, session: AsyncSession):
+        self.session = session
         self.repo = UserRepository(session)
 
     async def register(self, data: UserCreate) -> UserResponse:
@@ -28,17 +30,38 @@ class AuthService:
         user = await self.repo.create(user)
         return UserResponse.model_validate(user)
 
-    async def login(self, email: str, password: str) -> Token:
-        user = await self.repo.get_by_email(email)
+    async def login(self, username: str, password: str) -> Token:
+        normalized_username = username.strip()
+        if not normalized_username:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuário ou senha incorretos",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        normalized_email = normalized_username.lower()
+        user = await self.repo.get_by_email(normalized_email)
+
+        if not user:
+            statement = select(User).where(
+                or_(User.name == normalized_username, User.name == normalized_email)
+            )
+            result = await self.session.execute(statement)
+            user = result.scalar_one_or_none()
+
         if not user or not verify_password(password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password",
+                detail="Usuário ou senha incorretos",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
         access_token = create_access_token(subject=user.id)
-        return Token(access_token=access_token)
+        return Token(
+            access_token=access_token,
+            user_id=str(user.id),
+            username=user.email,
+        )
 
     async def get_current_user(self, user_id: str) -> User:
         user = await self.repo.get_by_id(user_id)
