@@ -28,17 +28,22 @@ class AuthService:
         user = await self.repo.create(user)
         return UserResponse.model_validate(user)
 
-    async def login(self, email: str, password: str) -> Token:
-        user = await self.repo.get_by_email(email)
+    async def login(self, username: str, password: str) -> Token:
+        normalized_username = username.strip().lower()
+        user = await self.repo.get_by_email(normalized_username)
         if not user or not verify_password(password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password",
+                detail="Usuário ou senha incorretos",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
         access_token = create_access_token(subject=user.id)
-        return Token(access_token=access_token)
+        return Token(
+            access_token=access_token,
+            user_id=str(user.id),
+            username=user.email,
+        )
 
     async def get_current_user(self, user_id: str) -> User:
         user = await self.repo.get_by_id(user_id)

@@ -1,8 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import CurrentUser, DbSession
-from app.schemas.auth import Token
-from app.schemas.user import UserCreate, UserLogin, UserResponse
+from app.api.deps import CurrentUser, DbSession, login_rate_limiter
+from app.schemas.auth import LoginRequest, Token
+from app.schemas.user import UserCreate, UserResponse
 from app.services.auth import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -14,10 +14,18 @@ async def register(data: UserCreate, session: DbSession):
     return await service.register(data)
 
 
-@router.post("/login", response_model=Token)
-async def login(data: UserLogin, session: DbSession):
+@router.post("/login", response_model=Token, dependencies=[Depends(login_rate_limiter)])
+async def login(data: LoginRequest, session: DbSession):
     service = AuthService(session)
-    return await service.login(data.email, data.password)
+    try:
+        return await service.login(data.username, data.password)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Sistema indisponível, tente mais tarde",
+        ) from exc
 
 
 @router.get("/me", response_model=UserResponse)
