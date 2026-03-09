@@ -1,7 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+  Validators
+} from '@angular/forms';
 import { finalize } from 'rxjs/operators';
 
 interface LoginResponse {
@@ -10,6 +17,26 @@ interface LoginResponse {
   user_id: string;
   username: string;
 }
+
+const usernameOrEmailValidator: ValidatorFn = (
+  control: AbstractControl
+): ValidationErrors | null => {
+  const rawValue = control.value;
+  const value = typeof rawValue === 'string' ? rawValue.trim() : '';
+
+  if (!value) {
+    return null;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const usernameRegex = /^[a-zA-Z0-9._-]{3,50}$/;
+
+  if (emailRegex.test(value) || usernameRegex.test(value)) {
+    return null;
+  }
+
+  return { usernameOrEmail: true };
+};
 
 @Component({
   selector: 'app-root',
@@ -25,9 +52,12 @@ export class AppComponent {
   isLoading = false;
   showPassword = false;
   errorMessage = '';
+  toastMessage = '';
+  toastType: 'success' | 'error' = 'error';
+  private toastTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   readonly loginForm = this.fb.nonNullable.group({
-    username: ['', [Validators.required, Validators.email]],
+    username: ['', [Validators.required, usernameOrEmailValidator]],
     password: ['', [Validators.required]]
   });
 
@@ -43,6 +73,20 @@ export class AppComponent {
     this.showPassword = !this.showPassword;
   }
 
+  private showToast(message: string, type: 'success' | 'error'): void {
+    this.toastMessage = message;
+    this.toastType = type;
+
+    if (this.toastTimeoutId) {
+      clearTimeout(this.toastTimeoutId);
+    }
+
+    this.toastTimeoutId = setTimeout(() => {
+      this.toastMessage = '';
+      this.toastTimeoutId = null;
+    }, 4000);
+  }
+
   submit(): void {
     if (this.loginForm.invalid || this.isLoading) {
       this.loginForm.markAllAsTouched();
@@ -50,7 +94,7 @@ export class AppComponent {
     }
 
     const { username, password } = this.loginForm.getRawValue();
-    const normalizedUsername = username.trim().toLowerCase();
+    const normalizedUsername = username.trim();
 
     if (!normalizedUsername) {
       this.loginForm.controls.username.setErrors({ required: true });
@@ -59,6 +103,7 @@ export class AppComponent {
     }
 
     this.errorMessage = '';
+    this.toastMessage = '';
     this.isLoading = true;
 
     this.http
@@ -72,13 +117,16 @@ export class AppComponent {
           localStorage.setItem('auth.access_token', response.access_token);
           localStorage.setItem('auth.user_id', response.user_id);
           localStorage.setItem('auth.username', response.username);
+          this.showToast('Login realizado com sucesso', 'success');
         },
         error: (error) => {
           if (error?.status === 401) {
             this.errorMessage = 'Usuário ou senha incorretos';
+            this.showToast(this.errorMessage, 'error');
             return;
           }
           this.errorMessage = 'Sistema indisponível, tente mais tarde';
+          this.showToast(this.errorMessage, 'error');
         }
       });
   }

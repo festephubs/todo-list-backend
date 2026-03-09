@@ -1,12 +1,16 @@
+<div class="toast" *ngIf="toastMessage" [class.toast-success]="toastType === 'success'" [class.toast-error]="toastType === 'error'">
+  {{ toastMessage }}
+</div>
+
 <main class="login-page">
   <section class="login-card">
     <h1>Entrar</h1>
 
     <form [formGroup]="loginForm" (ngSubmit)="submit()" novalidate>
-      <label for="username">E-mail</label>
+      <label for="username">E-mail ou usuário</label>
       <input
         id="username"
-        type="email"
+        type="text"
         formControlName="username"
         placeholder="usuario@teste"
         autocomplete="username"
@@ -14,8 +18,8 @@
       <small class="field-error" *ngIf="usernameControl.touched && usernameControl.hasError('required')">
         Campo obrigatório.
       </small>
-      <small class="field-error" *ngIf="usernameControl.touched && usernameControl.hasError('email')">
-        Formato de e-mail válido obrigatório.
+      <small class="field-error" *ngIf="usernameControl.touched && usernameControl.hasError('usernameOrEmail')">
+        Formato de e-mail válido ou usuário (3 a 50 caracteres) obrigatório.
       </small>
 
       <label for="password">Senha</label>
@@ -39,8 +43,6 @@
       <button type="submit" [disabled]="loginForm.invalid || isLoading">
         {{ isLoading ? 'Entrando...' : 'Entrar' }}
       </button>
-
-      <p class="form-error" *ngIf="errorMessage">{{ errorMessage }}</p>
     </form>
   </section>
 </main>

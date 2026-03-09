@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import CurrentUser, DbSession, login_rate_limiter
+from app.api.deps import CurrentUser, DbSession, enforce_login_cors, login_rate_limiter
 from app.schemas.auth import LoginRequest, Token
 from app.schemas.user import UserCreate, UserResponse
 from app.services.auth import AuthService
@@ -14,7 +14,11 @@ async def register(data: UserCreate, session: DbSession):
     return await service.register(data)
 
 
-@router.post("/login", response_model=Token, dependencies=[Depends(login_rate_limiter)])
+@router.post(
+    "/login",
+    response_model=Token,
+    dependencies=[Depends(enforce_login_cors), Depends(login_rate_limiter)],
+)
 async def login(data: LoginRequest, session: DbSession):
     service = AuthService(session)
     try:

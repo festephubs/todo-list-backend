@@ -1,9 +1,17 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class LoginRequest(BaseModel):
-    username: EmailStr
+    username: str = Field(min_length=1, max_length=254)
     password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Username is required")
+        return normalized
 
 
 class Token(BaseModel):
