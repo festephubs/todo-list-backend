@@ -49,11 +49,23 @@ export class AppComponent {
       return;
     }
 
+    const { username, password } = this.loginForm.getRawValue();
+    const normalizedUsername = username.trim().toLowerCase();
+
+    if (!normalizedUsername) {
+      this.loginForm.controls.username.setErrors({ required: true });
+      this.loginForm.controls.username.markAsTouched();
+      return;
+    }
+
     this.errorMessage = '';
     this.isLoading = true;
 
     this.http
-      .post<LoginResponse>('/api/v1/auth/login', this.loginForm.getRawValue())
+      .post<LoginResponse>('/api/v1/auth/login', {
+        username: normalizedUsername,
+        password
+      })
       .pipe(finalize(() => (this.isLoading = false)))
       .subscribe({
         next: (response) => {

@@ -29,8 +29,8 @@ class AuthService:
         return UserResponse.model_validate(user)
 
     async def login(self, username: str, password: str) -> Token:
-        normalized_username = username.strip().lower()
-        user = await self.repo.get_by_email(normalized_username)
+        normalized_email = username.strip().lower()
+        user = await self.repo.get_by_email(normalized_email)
         if not user or not verify_password(password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

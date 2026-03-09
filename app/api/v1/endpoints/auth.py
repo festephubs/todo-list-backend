@@ -19,7 +19,13 @@ async def login(data: LoginRequest, session: DbSession):
     service = AuthService(session)
     try:
         return await service.login(data.username, data.password)
-    except HTTPException:
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuário ou senha incorretos",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from exc
         raise
     except Exception as exc:
         raise HTTPException(
